@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testing Instructions Generator</title>
+</head>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+        color: #333;
+    }
+
+    .container {
+        max-width: 800px;
+        margin: 50px auto;
+        background: white;
+        padding: 30px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+    }
+
+    h1 {
+        text-align: center;
+        color: #007BFF;
+        margin-bottom: 20px;
+    }
+
+    form {
+        margin-bottom: 20px;
+    }
+
+    label {
+        font-weight: bold;
+        color: #333;
+    }
+
+    textarea, input[type="file"], button {
+        width: 100%;
+        margin: 10px 0;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+        font-size: 16px;
+    }
+
+    input[type="file"] {
+        padding: 8px;
+        border-radius: 5px;
+    }
+
+    button {
+        background-color: #007BFF;
+        color: white;
+        padding: 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #0056b3;
+    }
+
+    .test-case {
+        background-color: #f9f9f9;
+        border-left: 5px solid #007BFF;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .test-case h3 {
+        font-size: 18px;
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    .test-case p {
+        margin: 5px 0;
+    }
+
+    .test-case ul {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+
+    .test-case ul li {
+        margin-bottom: 5px;
+        list-style-type: disc;
+    }
+
+    /* Loader */
+    #loader {
+        display: none;
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    #loader img {
+        width: 50px;
+        height: 50px;
+    }
+
+    #results {
+        margin-top: 20px;
+    }
+
+</style>
+<body>
+    <div class="container">
+        <h1>Upload Screenshots to Generate Testing Instructions</h1>
+        <form id="upload-form" enctype="multipart/form-data">
+            <label for="context">Optional Context:</label>
+            <textarea id="context" name="context" rows="4" placeholder="Enter any additional context..."></textarea>
+            <label for="screenshots">Upload Screenshots:</label>
+            <input type="file" id="screenshots" name="screenshots" multiple accept="image/png, image/jpeg, image/jpg">
+            
+            <button type="submit">Describe Testing Instructions</button>
+        </form>
+
+        <div id="loader">
+            <img src="https://i.imgur.com/llF5iyg.gif" alt="Loading...">
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            // Show the loader
+            document.getElementById('loader').style.display = 'block';
+
+            const formData = new FormData();
+            const screenshots = document.getElementById('screenshots').files;
+
+            for (let i = 0; i < screenshots.length; i++) {
+                formData.append('screenshots', screenshots[i]);
+            }
+
+            const response = await fetch('/api/generate-test-cases', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const dataString = await response.json();
+            try {
+                let data = dataString['response'];
+                let cleanedString =  data.substring(8, data.length - 4);
+
+                let jsonObject = JSON.parse(cleanedString);
+        
+                console.log(jsonObject);
+                displayResults(jsonObject);
+            } catch (error) {
+                console.error("Error parsing JSON:", error);
+                document.getElementById('results').textContent = "Failed to parse the response.";
+            } finally {
+                // Hide the loader
+                document.getElementById('loader').style.display = 'none';
+            }
+        });
+        
+        function displayResults(data) {
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = '';  // Clear previous results
+            let cnt = 0;
+            if (data.testCases && data.testCases.length > 0) {
+                data.testCases.forEach(testCase => {
+                    const testCaseDiv = document.createElement('div');
+                    testCaseDiv.classList.add('test-case');
+
+                    const imageTitle = document.createElement('h3');
+                    imageTitle.textContent = `Test Case ${cnt + 1}`;
+                    testCaseDiv.appendChild(imageTitle);
+                    cnt++;
+
+                    const description = document.createElement('p');
+                    description.innerHTML = `<strong>Description:</strong> ${testCase.testCase.Description}`;
+                    testCaseDiv.appendChild(description);
+
+                    if (testCase.testCase['Pre-conditions'] && testCase.testCase['Pre-conditions'].length > 0) {
+                        const preConditions = document.createElement('ul');
+                        preConditions.innerHTML = `<strong>Pre-conditions:</strong>`;
+                        testCase.testCase['Pre-conditions'].forEach(condition => {
+                            const li = document.createElement('li');
+                            li.textContent = condition;
+                            preConditions.appendChild(li);
+                        });
+                        testCaseDiv.appendChild(preConditions);
+                    }
+
+                    if (testCase.testCase['Testing Steps'] && testCase.testCase['Testing Steps'].length > 0) {
+                        const steps = document.createElement('ul');
+                        steps.innerHTML = `<strong>Testing Steps:</strong>`;
+                        testCase.testCase['Testing Steps'].forEach(step => {
+                            const li = document.createElement('li');
+                            li.textContent = step;
+                            steps.appendChild(li);
+                        });
+                        testCaseDiv.appendChild(steps);
+                    }
+
+                    const expectedResult = document.createElement('p');
+                    expectedResult.innerHTML = `<strong>Expected Result:</strong> ${testCase.testCase['Expected Result']}`;
+                    testCaseDiv.appendChild(expectedResult);
+
+                    resultsContainer.appendChild(testCaseDiv);
+                });
+            } else {
+                resultsContainer.textContent = 'No test cases generated.';
+            }
+        }
+    </script>
+</body>
+</html>
