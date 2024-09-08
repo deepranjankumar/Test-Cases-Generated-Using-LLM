@@ -6,7 +6,7 @@ import PIL.Image
 import shutil
 
 app = Flask(__name__)
-GEMINI_API_KEY='AIzaSyDu7KQWy4dJT-3HLFtOkLJylP-yZs-ENBw'
+GEMINI_API_KEY='gemini-api-keys'
 
 if GEMINI_API_KEY is None:
     raise ValueError("API key is not set in environment variables")
